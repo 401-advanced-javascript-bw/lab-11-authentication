@@ -2,6 +2,9 @@
 
 const mongoose = require('mongoose');
 
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
 const users = new mongoose.Schema({
   username: {type: String, required: true, unique: true},
   password: {type: String, required: true},
@@ -10,7 +13,7 @@ const users = new mongoose.Schema({
 });
 
 users.pre('save', function(next) {
-  bcrypt.hash(this.password,10)
+  bcrypt.hash(this.password, 10)
     .then(hashedPassword => {
       this.password = hashedPassword;
       next();
@@ -19,15 +22,21 @@ users.pre('save', function(next) {
 });
 
 users.statics.authenticateBasic = function(auth) {
-  let query = {username:auth.username};
+  const query = {username: auth.username};
   return this.findOne(query)
     .then(user => user && user.comparePassword(auth.password))
     .catch(console.error);
 };
 
 // Compare a plain text password against the hashed one we have saved
-users.methods.comparePassword = function(password) {
-  return bcrypt.compare(password, this.password);
+users.methods.comparePassword = function(rawPassword) {
+  //bcrypt is a hashing algo
+  //password is a naked password, but passwords in the DB are hashed
+  return bcrypt.compare(rawPassword, this.password)
+
+  .then (valid => valid ? this: null); //if valid, return this, otherwise return null; (where this is the password?)
+
+  
 };
 
 // Generate a JWT from the user id and a secret
